@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Grid, showToast, Toast, getPreferenceValues, Cache } from "@raycast/api";
+import { Action, ActionPanel, Grid, showToast, Toast, Cache, LocalStorage, Icon } from "@raycast/api";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { getFonts, renderText, textToSvg } from "./utils/figlet";
 
@@ -18,16 +18,28 @@ const COMMENT_STYLES: { [key in CommentStyle]: { label: string; prefix: string; 
 export default function Command() {
   const [searchText, setSearchText] = useState("");
   const [fonts, setFonts] = useState<string[]>([]);
+  const [pinnedFonts, setPinnedFonts] = useState<string[]>([]);
   const [previews, setPreviews] = useState<{ [key: string]: { light: string; dark: string; raw: string } }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [commentStyle, setCommentStyle] = useState<CommentStyle>("none");
 
-  // Load fonts on mount
+  // Load fonts and pinned state on mount
   useEffect(() => {
-    async function loadFonts() {
+    async function loadData() {
       try {
-        const loadedFonts = await getFonts();
+        const [loadedFonts, storedPinned] = await Promise.all([
+          getFonts(),
+          LocalStorage.getItem<string>("pinnedFonts"),
+        ]);
+        
         setFonts(loadedFonts);
+        if (storedPinned) {
+          try {
+            setPinnedFonts(JSON.parse(storedPinned));
+          } catch (e) {
+            console.error("Failed to parse pinned fonts", e);
+          }
+        }
         
         // Load last used comment style
         const cachedStyle = cache.get("commentStyle");
@@ -37,14 +49,14 @@ export default function Command() {
       } catch (error) {
         showToast({
           style: Toast.Style.Failure,
-          title: "Failed to load fonts",
+          title: "Failed to load data",
           message: String(error),
         });
       } finally {
         setIsLoading(false);
       }
     }
-    loadFonts();
+    loadData();
   }, []);
 
   // Save comment style when changed
@@ -52,6 +64,15 @@ export default function Command() {
     const style = newValue as CommentStyle;
     setCommentStyle(style);
     cache.set("commentStyle", style);
+  };
+
+  const togglePin = async (font: string) => {
+    const newPinned = pinnedFonts.includes(font)
+      ? pinnedFonts.filter((f) => f !== font)
+      : [...pinnedFonts, font];
+    
+    setPinnedFonts(newPinned);
+    await LocalStorage.setItem("pinnedFonts", JSON.stringify(newPinned));
   };
 
   // Debounced preview generation
@@ -65,12 +86,22 @@ export default function Command() {
       
       // Process in chunks to avoid blocking UI
       const chunkSize = 20;
-      for (let i = 0; i < fonts.length; i += chunkSize) {
+      
+      // Prioritize pinned fonts for rendering
+      const sortedForRendering = [
+        ...pinnedFonts.filter(f => fonts.includes(f)),
+        ...fonts.filter(f => !pinnedFonts.includes(f))
+      ];
+
+      for (let i = 0; i < sortedForRendering.length; i += chunkSize) {
         if (isCancelled) return;
         
-        const chunk = fonts.slice(i, i + chunkSize);
+        const chunk = sortedForRendering.slice(i, i + chunkSize);
         await Promise.all(
           chunk.map(async (font) => {
+            // Skip if already rendered for this text (optimization)
+            // Note: We can't easily check if it matches current text without storing text with preview
+            // For now, we just re-render.
             try {
               const text = await renderText(textToRender, font);
               newPreviews[font] = { ...textToSvg(text), raw: text };
@@ -93,7 +124,7 @@ export default function Command() {
       isCancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [searchText, fonts]);
+  }, [searchText, fonts, pinnedFonts]);
 
   const getFinalText = useCallback((font: string) => {
     const ascii = previews[font]?.raw || "";
@@ -109,6 +140,13 @@ export default function Command() {
     }
     return ascii;
   }, [previews, commentStyle]);
+
+  const sortedFonts = useMemo(() => {
+    return [
+      ...pinnedFonts.filter(f => fonts.includes(f)),
+      ...fonts.filter(f => !pinnedFonts.includes(f))
+    ];
+  }, [fonts, pinnedFonts]);
 
   return (
     <Grid
@@ -129,27 +167,37 @@ export default function Command() {
         </Grid.Dropdown>
       }
     >
-      {fonts.map((font) => (
-        <Grid.Item
-          key={font}
-          content={{
-            source: previews[font] || { light: "", dark: "" },
-          }}
-          title={font}
-          actions={
-            <ActionPanel>
-              <Action.CopyToClipboard
-                title="Copy to Clipboard"
-                content={getFinalText(font)}
-              />
-              <Action.Paste
-                title="Paste to Active App"
-                content={getFinalText(font)}
-              />
-            </ActionPanel>
-          }
-        />
-      ))}
+      {sortedFonts.map((font) => {
+        const isPinned = pinnedFonts.includes(font);
+        return (
+          <Grid.Item
+            key={font}
+            content={{
+              source: previews[font] || { light: "", dark: "" },
+            }}
+            title={font}
+            accessory={isPinned ? { icon: Icon.Pin } : undefined}
+            actions={
+              <ActionPanel>
+                <Action.CopyToClipboard
+                  title="Copy to Clipboard"
+                  content={getFinalText(font)}
+                />
+                <Action.Paste
+                  title="Paste to Active App"
+                  content={getFinalText(font)}
+                />
+                <Action
+                  title={isPinned ? "Unpin Font" : "Pin Font"}
+                  icon={isPinned ? Icon.PinDisabled : Icon.Pin}
+                  shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
+                  onAction={() => togglePin(font)}
+                />
+              </ActionPanel>
+            }
+          />
+        );
+      })}
     </Grid>
   );
 }
