@@ -2,7 +2,6 @@ import { Action, ActionPanel, Grid, showToast, Toast, Cache, LocalStorage, Icon 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { getFonts, renderText, textToSvg } from "./utils/figlet";
 
-
 const cache = new Cache();
 
 type CommentStyle = "none" | "slash" | "hash" | "block" | "html";
@@ -31,7 +30,7 @@ export default function Command() {
           getFonts(),
           LocalStorage.getItem<string>("pinnedFonts"),
         ]);
-        
+
         setFonts(loadedFonts);
         if (storedPinned) {
           try {
@@ -40,7 +39,7 @@ export default function Command() {
             console.error("Failed to parse pinned fonts", e);
           }
         }
-        
+
         // Load last used comment style
         const cachedStyle = cache.get("commentStyle");
         if (cachedStyle && cachedStyle in COMMENT_STYLES) {
@@ -67,10 +66,8 @@ export default function Command() {
   };
 
   const togglePin = async (font: string) => {
-    const newPinned = pinnedFonts.includes(font)
-      ? pinnedFonts.filter((f) => f !== font)
-      : [...pinnedFonts, font];
-    
+    const newPinned = pinnedFonts.includes(font) ? pinnedFonts.filter((f) => f !== font) : [...pinnedFonts, font];
+
     setPinnedFonts(newPinned);
     await LocalStorage.setItem("pinnedFonts", JSON.stringify(newPinned));
   };
@@ -83,19 +80,19 @@ export default function Command() {
     const generatePreviews = async () => {
       setIsLoading(true);
       const newPreviews: { [key: string]: { light: string; dark: string; raw: string } } = {};
-      
+
       // Process in chunks to avoid blocking UI
       const chunkSize = 20;
-      
+
       // Prioritize pinned fonts for rendering
       const sortedForRendering = [
-        ...pinnedFonts.filter(f => fonts.includes(f)),
-        ...fonts.filter(f => !pinnedFonts.includes(f))
+        ...pinnedFonts.filter((f) => fonts.includes(f)),
+        ...fonts.filter((f) => !pinnedFonts.includes(f)),
       ];
 
       for (let i = 0; i < sortedForRendering.length; i += chunkSize) {
         if (isCancelled) return;
-        
+
         const chunk = sortedForRendering.slice(i, i + chunkSize);
         await Promise.all(
           chunk.map(async (font) => {
@@ -108,9 +105,9 @@ export default function Command() {
             } catch (e) {
               console.error(`Failed to render font ${font}`, e);
             }
-          })
+          }),
         );
-        
+
         // Update state incrementally
         setPreviews((prev) => ({ ...prev, ...newPreviews }));
         // Small delay to yield to main thread
@@ -126,32 +123,35 @@ export default function Command() {
     };
   }, [searchText, fonts, pinnedFonts]);
 
-  const getFinalText = useCallback((font: string) => {
-    const ascii = previews[font]?.raw || "";
-    const style = COMMENT_STYLES[commentStyle];
-    
-    if (style.prefix || style.suffix) {
-      // Apply comment to each line if it's a line comment, or wrap if block
-      if (commentStyle === "slash" || commentStyle === "hash") {
-        return ascii.split("\n").map(line => `${style.prefix}${line}`).join("\n");
-      } else {
-        return `${style.prefix}${ascii}${style.suffix}`;
+  const getFinalText = useCallback(
+    (font: string) => {
+      const ascii = previews[font]?.raw || "";
+      const style = COMMENT_STYLES[commentStyle];
+
+      if (style.prefix || style.suffix) {
+        // Apply comment to each line if it's a line comment, or wrap if block
+        if (commentStyle === "slash" || commentStyle === "hash") {
+          return ascii
+            .split("\n")
+            .map((line) => `${style.prefix}${line}`)
+            .join("\n");
+        } else {
+          return `${style.prefix}${ascii}${style.suffix}`;
+        }
       }
-    }
-    return ascii;
-  }, [previews, commentStyle]);
+      return ascii;
+    },
+    [previews, commentStyle],
+  );
 
   const sortedFonts = useMemo(() => {
-    return [
-      ...pinnedFonts.filter(f => fonts.includes(f)),
-      ...fonts.filter(f => !pinnedFonts.includes(f))
-    ];
+    return [...pinnedFonts.filter((f) => fonts.includes(f)), ...fonts.filter((f) => !pinnedFonts.includes(f))];
   }, [fonts, pinnedFonts]);
 
   return (
     <Grid
       columns={2}
-			aspectRatio="16/9"
+      aspectRatio="16/9"
       isLoading={isLoading}
       searchBarPlaceholder="Enter text to convert..."
       onSearchTextChange={setSearchText}
@@ -169,40 +169,33 @@ export default function Command() {
         </Grid.Dropdown>
       }
     >
-			<Grid.Section title="Select a font">
-
-      {sortedFonts.map((font) => {
-        const isPinned = pinnedFonts.includes(font);
-        return (
-          <Grid.Item
-            key={font}
-            content={{
-              source: previews[font] || { light: "", dark: "" },
-            }}
-            title={font}
-            accessory={isPinned ? { icon: Icon.Pin } : undefined}
-            actions={
-              <ActionPanel>
-                <Action.CopyToClipboard
-                  title="Copy to Clipboard"
-                  content={getFinalText(font)}
-                />
-                <Action.Paste
-                  title="Paste to Active App"
-                  content={getFinalText(font)}
-                />
-                <Action
-                  title={isPinned ? "Unpin Font" : "Pin Font"}
-                  icon={isPinned ? Icon.PinDisabled : Icon.Pin}
-                  shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
-                  onAction={() => togglePin(font)}
-                />
-              </ActionPanel>
-            }
-          />
-        );
-      })}
-				</Grid.Section>
+      <Grid.Section title="Select a font">
+        {sortedFonts.map((font) => {
+          const isPinned = pinnedFonts.includes(font);
+          return (
+            <Grid.Item
+              key={font}
+              content={{
+                source: previews[font] || { light: "", dark: "" },
+              }}
+              title={font}
+              accessory={isPinned ? { icon: Icon.Pin } : undefined}
+              actions={
+                <ActionPanel>
+                  <Action.CopyToClipboard title="Copy to Clipboard" content={getFinalText(font)} />
+                  <Action.Paste title="Paste to Active App" content={getFinalText(font)} />
+                  <Action
+                    title={isPinned ? "Unpin Font" : "Pin Font"}
+                    icon={isPinned ? Icon.PinDisabled : Icon.Pin}
+                    shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
+                    onAction={() => togglePin(font)}
+                  />
+                </ActionPanel>
+              }
+            />
+          );
+        })}
+      </Grid.Section>
     </Grid>
   );
 }
