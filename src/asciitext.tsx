@@ -150,6 +150,8 @@ export default function Command() {
 
   return (
     <Grid
+      columns={2}
+			aspectRatio="16/9"
       isLoading={isLoading}
       searchBarPlaceholder="Enter text to convert..."
       onSearchTextChange={setSearchText}
@@ -167,6 +169,8 @@ export default function Command() {
         </Grid.Dropdown>
       }
     >
+			<Grid.Section title="Select a font">
+
       {sortedFonts.map((font) => {
         const isPinned = pinnedFonts.includes(font);
         return (
@@ -198,6 +202,7 @@ export default function Command() {
           />
         );
       })}
+				</Grid.Section>
     </Grid>
   );
 }
