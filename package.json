@@ -2,10 +2,9 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "ascii-art-text",
   "title": "ASCII Art Text",
-  "description": "Generate ASCII art text from your input.",
+  "description": "Convert text into ASCII art using various fonts.",
   "icon": "extension-icon.png",
   "author": "tonicastillo",
-  "owner": "toni_castillo",
   "platforms": [
     "macOS",
     "Windows"
@@ -17,8 +16,8 @@
   "commands": [
     {
       "name": "asciitext",
-      "title": "Convert Text to ASCII Art",
-      "description": "Convert text to ASCII Art",
+      "title": "Convert Text",
+      "description": "Generates ASCII art from text using various fonts.",
       "mode": "view"
     }
   ],
