@@ -1,4 +1,14 @@
-import { Action, ActionPanel, Grid, showToast, Toast, Cache, LocalStorage, Icon } from "@raycast/api";
+import {
+  Action,
+  ActionPanel,
+  Grid,
+  showToast,
+  Toast,
+  Cache,
+  LocalStorage,
+  Icon,
+  getPreferenceValues,
+} from "@raycast/api";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { getFonts, renderText, textToSvg } from "./utils/figlet";
 
@@ -13,6 +23,10 @@ const COMMENT_STYLES: { [key in CommentStyle]: { label: string; prefix: string; 
   block: { label: "/* */ (CSS, JS)", prefix: "/*\n", suffix: "\n*/" },
   html: { label: "<!-- --> (HTML)", prefix: "<!--\n", suffix: "\n-->" },
 };
+
+interface Preferences {
+  defaultAction: "copy" | "paste";
+}
 
 export default function Command() {
   const [searchText, setSearchText] = useState("");
@@ -148,6 +162,8 @@ export default function Command() {
     return [...pinnedFonts.filter((f) => fonts.includes(f)), ...fonts.filter((f) => !pinnedFonts.includes(f))];
   }, [fonts, pinnedFonts]);
 
+  const preferences = getPreferenceValues<Preferences>();
+
   return (
     <Grid
       columns={2}
@@ -182,8 +198,17 @@ export default function Command() {
               accessory={isPinned ? { icon: Icon.Pin } : undefined}
               actions={
                 <ActionPanel>
-                  <Action.CopyToClipboard title="Copy to Clipboard" content={getFinalText(font)} />
-                  <Action.Paste title="Paste to Active App" content={getFinalText(font)} />
+                  {preferences.defaultAction === "copy" ? (
+                    <>
+                      <Action.CopyToClipboard title="Copy to Clipboard" content={getFinalText(font)} />
+                      <Action.Paste title="Paste to Active App" content={getFinalText(font)} />
+                    </>
+                  ) : (
+                    <>
+                      <Action.Paste title="Paste to Active App" content={getFinalText(font)} />
+                      <Action.CopyToClipboard title="Copy to Clipboard" content={getFinalText(font)} />
+                    </>
+                  )}
                   <Action
                     title={isPinned ? "Unpin Font" : "Pin Font"}
                     icon={isPinned ? Icon.PinDisabled : Icon.Pin}

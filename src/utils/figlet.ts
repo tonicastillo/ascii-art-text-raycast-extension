@@ -32,6 +32,7 @@ export const renderText = async (text: string, font: string): Promise<string> =>
     figlet.parseFont(font, fontContent);
 
     return new Promise((resolve, reject) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       figlet.text(text, { font: font as any }, (err: Error | null, result?: string) => {
         if (err) {
           reject(err);
