@@ -1,6 +1,7 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "ascii-art-text",
+  "version": "1.0.0",
   "title": "ASCII Art Text",
   "description": "Convert text into ASCII art using various fonts.",
   "icon": "extension-icon.png",
